@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name" translatable="false">Music Player</string>
+    <string name="text_welcome">Welcome</string>
+    <string name="txt_favourites">Favourites</string>
+    <string name="txt_playlists">Playlists</string>
+    <string name="txt_tracks">Tracks</string>
+    <string name="txt_albums">Albums</string>
+    <string name="txt_artists">Artists</string>
+    <string name="txt_folders">Folders</string>
+    <string name="txt_dark">Dark</string>
+    <string name="txt_light">Light</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Music Player</string>
+    <string name="text_welcome">Добро пожаловать</string>
+    <string name="txt_favourites">Избранные</string>
+    <string name="txt_playlists">Плейлисты</string>
+    <string name="txt_tracks">Треки</string>
+    <string name="txt_albums">Альбомы</string>
+    <string name="txt_artists">Артисты</string>
+    <string name="txt_folders">Папки</string>
+    <string name="txt_dark">Темная</string>
+    <string name="txt_light">Светлая</string>
+</resources>
