@@ -8,5 +8,6 @@ data class MusicData(
     val artist:String,
     val albumId:Long = 0,
     val data:String?,
-    val duration:Long
+    val duration:Long,
+    var isFavourite:Boolean = false
 )

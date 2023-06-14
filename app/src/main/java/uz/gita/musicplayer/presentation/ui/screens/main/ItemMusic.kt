@@ -41,10 +41,11 @@ import uz.gita.musicplayer.R
 import uz.gita.musicplayer.data.model.MusicData
 import uz.gita.musicplayer.data.model.ThemeUtil
 import uz.gita.musicplayer.presentation.ui.theme.MusicPlayerTheme
+import uz.gita.musicplayer.presentation.ui.theme.Selected
 import uz.gita.musicplayer.utils.myLog
 
 @Composable
-fun ItemMusic(music:MusicData,onClickItem:()->Unit) {
+fun ItemMusic(music:MusicData,onClickItem:()->Unit,isSelected:Boolean = false) {
 //    myLog("name:${music.name}  image:${music.albumId}")
 
     val albumId = music.albumId
@@ -53,6 +54,13 @@ fun ItemMusic(music:MusicData,onClickItem:()->Unit) {
         painterResource(id = R.drawable.ic_music)
     }else {
         rememberAsyncImagePainter(uri)
+    }
+    var mNameColor = Color.Black
+    var mArtistColor = Color.Gray
+
+    if (isSelected){
+        mNameColor = Selected
+        mArtistColor = Selected
     }
 
     MusicPlayerTheme(darkTheme = ThemeUtil.value.value) {
@@ -64,6 +72,7 @@ fun ItemMusic(music:MusicData,onClickItem:()->Unit) {
                     radius = 232.dp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                 ), onClick = {
+                    myLog("onClick Column")
                     onClickItem.invoke()
                 })) {
                 Row(
@@ -91,8 +100,8 @@ fun ItemMusic(music:MusicData,onClickItem:()->Unit) {
                             .padding(start = 12.dp)
                             .weight(1f), verticalArrangement = Arrangement.Center
                     ) {
-                        Text(text = music.name, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(text = music.artist, color = Color.Gray, fontSize = 16.sp, maxLines = 1,overflow = TextOverflow.Ellipsis)
+                        Text(text = music.name,color = mNameColor, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(text = music.artist, color = mArtistColor, fontSize = 16.sp, maxLines = 1,overflow = TextOverflow.Ellipsis)
                     }
                     Image(
                         painter = painterResource(id = R.drawable.ic_more), modifier = Modifier

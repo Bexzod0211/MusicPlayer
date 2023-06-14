@@ -8,6 +8,8 @@ interface PlayContract {
     sealed interface Intent {
         object LoadMusicData:Intent
         class DoCommand(val command:CommandEnum):Intent
+        object BackToMain:Intent
+        class Shuffle(val shuffleState:Boolean):Intent
     }
 
     sealed interface UiState {
@@ -19,7 +21,7 @@ interface PlayContract {
     }
 
     interface Direction {
-
+        suspend fun backToMain()
     }
 
     interface ViewModel : ContainerHost<UiState,SideEffect>{

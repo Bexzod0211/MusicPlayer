@@ -20,15 +20,20 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import uz.gita.musicplayer.MainActivity
 import uz.gita.musicplayer.R
 import uz.gita.musicplayer.data.model.CommandEnum
 import uz.gita.musicplayer.data.model.MusicData
+import uz.gita.musicplayer.presentation.ui.screens.play.PlayScreen
 import uz.gita.musicplayer.utils.MyEventBus
 import uz.gita.musicplayer.utils.base.getMusicByPos
 import uz.gita.musicplayer.utils.myLog
+import kotlin.random.Random
+import kotlin.random.nextInt
 
 class MusicService : Service() {
     private val CHANNEL_ID = "Bekhzod's Music player"
@@ -58,16 +63,21 @@ class MusicService : Service() {
 
 
     private fun createNotification(music: MusicData, command: CommandEnum) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_music)
             .setCustomContentView(createRemoteView(music, command))
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setOngoing(true)
+            .setContentIntent(pendingIntent)
 
 
         startForeground(1, notificationBuilder.build())
     }
-
 
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -115,7 +125,6 @@ class MusicService : Service() {
     }
 
 
-
     private fun doneCommand(command: CommandEnum) {
         when (command) {
             CommandEnum.MANAGE -> {
@@ -138,11 +147,17 @@ class MusicService : Service() {
                     musicPlayer.seekTo(0)
                     startNewJob()
                 } else {
-                    if (MyEventBus.selectedPos == 0) {
-                        MyEventBus.selectedPos = MyEventBus.cursor!!.count - 1
+                    var nextPos = 0
+                    if (MyEventBus.isShuffle) {
+                        nextPos = Random.nextInt(0, MyEventBus.cursor!!.count)
                     } else {
-                        --MyEventBus.selectedPos
+                        nextPos = if (MyEventBus.selectedPos == 0) {
+                            MyEventBus.cursor!!.count - 1
+                        } else {
+                            --MyEventBus.selectedPos
+                        }
                     }
+                    MyEventBus.selectedPos = nextPos
                     doneCommand(CommandEnum.START)
                 }
             }
@@ -159,15 +174,18 @@ class MusicService : Service() {
             CommandEnum.START -> {
 
                 val data = MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)
-                _musicPlayer?.let {
-                    it.stop()
-                }
+                _musicPlayer?.stop()
                 _musicPlayer = MediaPlayer.create(this, Uri.parse(data.data))
                 MyEventBus.currentTime = 0
 
                 musicPlayer.setOnCompletionListener {
-                    doneCommand(CommandEnum.NEXT)
+                    if (MyEventBus.isRepeatOne){
+                        doneCommand(CommandEnum.START)
+                    }else {
+                        doneCommand(CommandEnum.NEXT)
+                    }
                 }
+
                 MyEventBus.totalTime = MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos).duration
                 startNewJob()
 
@@ -176,8 +194,8 @@ class MusicService : Service() {
 //                }.launchIn(scope)
 
                 musicPlayer.start()
-
                 scope.launch {
+                    MyEventBus.selectedMusic.emit(MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos))
                     MyEventBus.musicIsPlaying.emit(musicPlayer.isPlaying)
                 }
             }
@@ -194,11 +212,17 @@ class MusicService : Service() {
             }
 
             CommandEnum.NEXT -> {
-                if (MyEventBus.selectedPos == MyEventBus.cursor!!.count - 1) {
-                    MyEventBus.selectedPos = 0
+                var nextPos = 0
+                if (MyEventBus.isShuffle) {
+                    nextPos = Random.nextInt(0, MyEventBus.cursor!!.count)
                 } else {
-                    ++MyEventBus.selectedPos
+                    nextPos = if (MyEventBus.selectedPos == MyEventBus.cursor!!.count - 1) {
+                        0
+                    } else {
+                        ++MyEventBus.selectedPos
+                    }
                 }
+                MyEventBus.selectedPos = nextPos
                 doneCommand(CommandEnum.START)
             }
 
@@ -212,6 +236,14 @@ class MusicService : Service() {
 
             CommandEnum.SEEKBAR_CHANGED -> {
                 startNewJob()
+            }
+
+            CommandEnum.SEEK_TO -> {
+                MyEventBus.musicIsPlaying.onEach {
+                    if (!it){
+                        job?.cancel()
+                    }
+                }.launchIn(scope)
                 musicPlayer.seekTo(MyEventBus.currentTime)
             }
         }
@@ -222,7 +254,7 @@ class MusicService : Service() {
             emit(i.toInt())
             delay(1000)
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     private fun startNewJob() {
         job?.cancel()

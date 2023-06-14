@@ -10,6 +10,7 @@ import org.orbitmvi.orbit.syntax.simple.intent
 import org.orbitmvi.orbit.syntax.simple.postSideEffect
 import org.orbitmvi.orbit.syntax.simple.reduce
 import org.orbitmvi.orbit.viewmodel.container
+import uz.gita.musicplayer.data.model.CommandEnum
 import uz.gita.musicplayer.presentation.ui.contract.MainContract
 import uz.gita.musicplayer.presentation.ui.usecase.MainUseCase
 import uz.gita.musicplayer.utils.MyEventBus
@@ -45,18 +46,34 @@ class MainViewModel @Inject constructor(
                             tabs = it
                         }
                             .launchIn(viewModelScope)
-                        MainContract.UiState.PreparedData(intent.context.getAllMusics(),tabs)
+                        MainContract.UiState.PreparedData(intent.context.getAllMusics(),tabs,music = if (MyEventBus.selectedPos != -1) MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)
+                        else null)
                     }
                 }
             }
+
             is MainContract.Intent.ItemClickedByPos->{
                 MyEventBus.selectedPos = intent.pos
                 MyEventBus.totalTime = MyEventBus.cursor!!.getMusicByPos(intent.pos).duration
-                viewModelScope.launch {
+                /*viewModelScope.launch {
                     direction.openPlayScreen()
-                }
+                }*/
                 intent {
-                    postSideEffect(MainContract.SideEffect.StartMusicService)
+                    postSideEffect(MainContract.SideEffect.StartMusicService(CommandEnum.START))
+                }
+            }
+
+            is MainContract.Intent.BottomContentClicked-> {
+                if (MyEventBus.selectedPos != -1) {
+                    viewModelScope.launch {
+                        direction.openPlayScreen()
+                    }
+                }
+            }
+
+            is MainContract.Intent.DoCommand->{
+                intent {
+                    postSideEffect(MainContract.SideEffect.StartMusicService(intent.command))
                 }
             }
         }

@@ -37,7 +37,7 @@ fun MarqueeTextComponent(
     LaunchedEffect(key1 = shouldAnimated) {
         scrollState.animateScrollTo(
             scrollState.maxValue,
-            animationSpec = tween(10000, 200, easing = CubicBezierEasing(0f, 0f, 0f, 0f))
+            animationSpec = tween(15000, 700, easing = CubicBezierEasing(0f, 0f, 0f, 0f))
         )
         scrollState.scrollTo(0)
         shouldAnimated = !shouldAnimated

@@ -1,7 +1,9 @@
 package uz.gita.musicplayer.presentation.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.syntax.simple.intent
 import org.orbitmvi.orbit.syntax.simple.postSideEffect
@@ -11,12 +13,12 @@ import uz.gita.musicplayer.presentation.ui.contract.PlayContract
 import uz.gita.musicplayer.presentation.ui.usecase.PlayUseCase
 import uz.gita.musicplayer.utils.MyEventBus
 import uz.gita.musicplayer.utils.base.getMusicByPos
-import uz.gita.musicplayer.utils.myLog
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayViewModel @Inject constructor(
-    private val useCase: PlayUseCase
+    private val useCase: PlayUseCase,
+    private val direction:PlayContract.Direction
 ) : PlayContract.ViewModel, ViewModel() {
 
 
@@ -25,7 +27,7 @@ class PlayViewModel @Inject constructor(
     init {
         intent {
             reduce {
-                myLog("reduce -> music = ${MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)}")
+//                myLog("reduce -> music = ${MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)}")
                 PlayContract.UiState.CurrentMusicData(music = MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos))
             }
         }
@@ -46,6 +48,14 @@ class PlayViewModel @Inject constructor(
                 }
             }
 
+            is PlayContract.Intent.BackToMain->{
+                viewModelScope.launch {
+                    direction.backToMain()
+                }
+            }
+            is PlayContract.Intent.Shuffle->{
+                MyEventBus.isShuffle = intent.shuffleState
+            }
         }
     }
 

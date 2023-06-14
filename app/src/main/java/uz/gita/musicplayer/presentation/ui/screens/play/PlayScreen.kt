@@ -2,18 +2,13 @@ package uz.gita.musicplayer.presentation.ui.screens.play
 
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
-import android.view.Window
-import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -30,7 +24,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,7 +31,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -46,25 +38,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 import cafe.adriel.voyager.androidx.AndroidScreen
 import cafe.adriel.voyager.hilt.getViewModel
 import coil.compose.rememberAsyncImagePainter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.orbitmvi.orbit.compose.collectAsState
 import org.orbitmvi.orbit.compose.collectSideEffect
-import uz.gita.musicplayer.MainActivity
 import uz.gita.musicplayer.R
 import uz.gita.musicplayer.data.model.CommandEnum
 import uz.gita.musicplayer.data.model.MusicData
@@ -75,7 +58,6 @@ import uz.gita.musicplayer.presentation.ui.viewmodel.PlayViewModel
 import uz.gita.musicplayer.service.MusicService
 import uz.gita.musicplayer.utils.MyEventBus
 import uz.gita.musicplayer.utils.component.MarqueeTextComponent
-import uz.gita.musicplayer.utils.myLog
 
 class PlayScreen : AndroidScreen() {
     @Composable
@@ -127,18 +109,23 @@ private fun durationToTime(duration: Long): String {
     return result
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispatcher: (PlayContract.Intent) -> Unit) {
-    val context = LocalContext.current
-    val scope = CoroutineScope(Dispatchers.Main)
+
+
+//    context.window.enterTransition = Fade(Fade.MODE_IN)
     onEventDispatcher.invoke(PlayContract.Intent.LoadMusicData)
 
     var currentTime = MyEventBus.currentTimeFlow.collectAsState()
-    var sliderValue = currentTime.value.toFloat()
-
+//    myLog("PlayScreenContent")
 //    myLog("${uiState.value}")
     val isPlaying = MyEventBus.musicIsPlaying.collectAsState()
+    var shuffle by remember {
+        mutableStateOf(MyEventBus.isShuffle)
+    }
+    var isRepeatOne by remember {
+        mutableStateOf(MyEventBus.isRepeatOne)
+    }
 
     val imageSize = animateDpAsState(targetValue = if (isPlaying.value) 320.dp else 170.dp, animationSpec = tween(durationMillis = 300))
 
@@ -170,10 +157,19 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                             Image(
                                 painter = painterResource(id = R.drawable.ic_more_down),
                                 contentDescription = null,
-                                modifier = Modifier.padding(start = 16.dp)
+                                modifier = Modifier
+                                    .padding(start = 16.dp)
+                                    .clickable {
+                                        onEventDispatcher.invoke(PlayContract.Intent.BackToMain)
+                                    }
+                                    .padding(4.dp)
                             )
                             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
-                                Image(painter = painterResource(id = R.drawable.ic_volume), contentDescription = null)
+                                Image(painter = painterResource(id = R.drawable.ic_volume),
+                                    contentDescription = null,
+                                modifier = Modifier
+                                    .align(Alignment.CenterVertically)
+                                    .padding(4.dp))
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_more),
                                     contentDescription = null,
@@ -183,6 +179,7 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                         .clickable {
 
                                         }
+                                        .padding(4.dp)
                                 )
                             }
                         }
@@ -200,6 +197,7 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                 contentScale = ContentScale.Crop
                             )
                         }
+
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier
                             .padding(horizontal = 32.dp)
                             .fillMaxWidth()){
@@ -254,7 +252,10 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                     thumbColor = Color(0xFFFAFAFA)
                                 ),
                                 steps = 1000,
-                                valueRange = 0f..music.duration.toFloat()
+                                valueRange = 0f..music.duration.toFloat(),
+                                onValueChangeFinished = {
+                                    onEventDispatcher.invoke(PlayContract.Intent.DoCommand(CommandEnum.SEEK_TO))
+                                }
                             )
                             Row(
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -272,9 +273,15 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                     .fillMaxWidth(), verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.shuffle_on),
+                                    painter = painterResource(id = if (shuffle) R.drawable.shuffle_on
+                                    else R.drawable.shuffle_off),
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clickable {
+                                            shuffle = !shuffle
+                                            onEventDispatcher.invoke(PlayContract.Intent.Shuffle(shuffle))
+                                        },
                                     colorFilter = ColorFilter.tint(Color.White)
                                 )
                                 Image(
@@ -283,8 +290,8 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clickable {
-                                        onEventDispatcher.invoke(PlayContract.Intent.DoCommand(CommandEnum.PREV))
-                                    }
+                                            onEventDispatcher.invoke(PlayContract.Intent.DoCommand(CommandEnum.PREV))
+                                        }
                                 )
                                 Image(
                                     painter = painterResource(
@@ -307,12 +314,19 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clickable {
-                                        onEventDispatcher.invoke(PlayContract.Intent.DoCommand(CommandEnum.NEXT))
-                                    }
+                                            onEventDispatcher.invoke(PlayContract.Intent.DoCommand(CommandEnum.NEXT))
+                                        }
                                 )
                                 Image(
-                                    painter = painterResource(id = R.drawable.ic_repeat_all),
-                                    contentDescription = null
+                                    painter = painterResource(id =
+                                    if(isRepeatOne) R.drawable.ic_repeat
+                                    else R.drawable.ic_repeat_all),
+                                    contentDescription = null,
+                                    modifier = Modifier.
+                                    clickable {
+                                        isRepeatOne = !isRepeatOne
+                                        MyEventBus.isRepeatOne = isRepeatOne
+                                    }
                                 )
                             }
                         }
