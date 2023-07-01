@@ -309,7 +309,7 @@ private fun BottomComponent(modifier: Modifier, isPlaying: Boolean, onUserAction
     val music = if (MyEventBus.selectedPos != - 1) selectedMusic.value
     else selectedFavMusic.value
 
-    myLog("BottomComponent")
+//    myLog("BottomComponent")
 
     val mName = music?.name ?: "No composition"
     val mArtist = music?.artist ?: ""

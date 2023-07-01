@@ -140,6 +140,7 @@ class MusicService : Service() {
                 }
             }
 
+
             CommandEnum.PREV -> {
                 var currentTime = 0
                 MyEventBus.currentTimeFlow.onEach {
@@ -149,10 +150,13 @@ class MusicService : Service() {
                 if (currentTime > 10_000) {
                     MyEventBus.currentTime = 0
                     musicPlayer.seekTo(0)
-                    MyEventBus.musicIsPlaying.onEach {
-                        if (it)
-                            startNewJob()
-                    }.launchIn(scope)
+                    if (musicPlayer.isPlaying){
+                        startNewJob()
+                    }
+                    else
+                        scope.launch {
+                            MyEventBus.currentTimeFlow.emit(0)
+                        }
                 } else {
                     if (MyEventBus.selectedPos != -1) {
                         var nextPos = 0
@@ -183,15 +187,6 @@ class MusicService : Service() {
                 }
             }
 
-            CommandEnum.PLAY -> {
-                musicPlayer.seekTo(MyEventBus.currentTime)
-                musicPlayer.start()
-                startNewJob()
-                scope.launch {
-                    MyEventBus.musicIsPlaying.emit(musicPlayer.isPlaying)
-                }
-            }
-
             CommandEnum.START -> {
                 _musicPlayer?.stop()
                 MyEventBus.currentTime = 0
@@ -218,7 +213,7 @@ class MusicService : Service() {
                     data = dao.getAllFavouritesMusics()[MyEventBus.selectedFavPos]
                     _musicPlayer = MediaPlayer.create(this, Uri.parse(data.data))
                     scope.launch {
-                        myLog("MyEventBus.selectedFavMusicFlow.emit(data) in MusicService")
+//                        myLog("MyEventBus.selectedFavMusicFlow.emit(data) in MusicService")
                         MyEventBus.selectedFavMusicFlow.emit(data)
                     }
 //                MyEventBus.currentTimeFlow.onEach {
@@ -244,9 +239,20 @@ class MusicService : Service() {
             CommandEnum.PAUSE -> {
                 musicPlayer.pause()
                 MyEventBus.currentTimeFlow.onEach {
+                    myLog("Pause MyEventBus.currentTimeFlow $it")
                     MyEventBus.currentTime = it
                 }.launchIn(scope)
                 job?.cancel()
+                scope.launch {
+                    MyEventBus.musicIsPlaying.emit(musicPlayer.isPlaying)
+                }
+            }
+
+            CommandEnum.PLAY -> {
+                myLog("CommandEnum.Play, currentTime => ${MyEventBus.currentTime}")
+                musicPlayer.seekTo(MyEventBus.currentTime)
+                musicPlayer.start()
+                startNewJob()
                 scope.launch {
                     MyEventBus.musicIsPlaying.emit(musicPlayer.isPlaying)
                 }

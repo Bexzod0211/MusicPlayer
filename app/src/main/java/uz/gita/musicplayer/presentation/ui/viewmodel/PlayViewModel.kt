@@ -61,7 +61,7 @@ class PlayViewModel @Inject constructor(
             PlayContract.Intent.LoadMusicData -> {
                 intent {
                     reduce {
-                        myLog("PlayContract.Intent.LoadMusicData, isFavourite=> ${isFavourite()}")
+//                        myLog("PlayContract.Intent.LoadMusicData, isFavourite=> ${isFavourite()}")
                         PlayContract.UiState.CurrentMusicData(musicData, isFavourite())
                     }
                 }
