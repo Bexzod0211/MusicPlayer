@@ -10,10 +10,12 @@ interface PlayContract {
         class DoCommand(val command:CommandEnum):Intent
         object BackToMain:Intent
         class Shuffle(val shuffleState:Boolean):Intent
+        object AddToFavourites:Intent
+        object RemoveFromFavourites:Intent
     }
 
     sealed interface UiState {
-        class CurrentMusicData(val music:MusicData):UiState
+        class CurrentMusicData(val music:MusicData,val isFavourite:Boolean):UiState
     }
 
     sealed interface SideEffect {

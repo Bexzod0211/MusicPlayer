@@ -8,13 +8,18 @@ import uz.gita.musicplayer.data.model.MusicData
 interface MainContract {
     sealed interface Intent {
         class LoadAllData(val context:Context):Intent
-        class ItemClickedByPos(val pos:Int):Intent
+        class AllTracksItemClickedByPos(val pos:Int):Intent
+        class FavouritesItemClickByPos(val pos:Int):Intent
         object BottomContentClicked:Intent
         class DoCommand(val command:CommandEnum):Intent
     }
 
     sealed interface UiState {
-        class PreparedData(val musics:List<MusicData> = listOf(),val tabs:List<Int> = listOf(),val music:MusicData? = null):UiState
+        class PreparedData(val musics:List<MusicData> = listOf(),
+                           val tabs:List<Int> = listOf(),
+                           val music:MusicData? = null,
+                           val favouriteMusics:List<MusicData> = listOf()
+        ):UiState
     }
 
     sealed interface SideEffect {

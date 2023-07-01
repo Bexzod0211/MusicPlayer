@@ -84,15 +84,15 @@ class MyNotification : AndroidScreen() {
         val pendingBroadcastIntent = PendingIntent.getBroadcast(context,0,broadcastIntent,PendingIntent.FLAG_IMMUTABLE)
 
         val notificationBuilder = NotificationCompat.Builder(context,CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_music)
+            .setSmallIcon(R.drawable.icon_music)
             .setContentTitle(title)
             .setContentText(text)
             .setContentInfo("Something else to content info")
             .setStyle(NotificationCompat.BigTextStyle())
-            .addAction(R.drawable.ic_music,"Open",pendingIntent)
+            .addAction(R.drawable.icon_music,"Open",pendingIntent)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .addAction(R.drawable.ic_music,"Open broadcast",pendingBroadcastIntent)
+            .addAction(R.drawable.icon_music,"Open broadcast",pendingBroadcastIntent)
 
 
 

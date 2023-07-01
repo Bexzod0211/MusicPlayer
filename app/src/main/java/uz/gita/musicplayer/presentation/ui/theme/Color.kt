@@ -11,3 +11,6 @@ val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
 val Selected = Color(0xFF268BE5)
+
+val Gray = Color(0xFF7A7A7A)
+val TopBar = Color(0xFFF2F2F2)

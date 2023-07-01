@@ -22,14 +22,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,7 +43,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,14 +55,14 @@ import uz.gita.musicplayer.MainActivity
 import uz.gita.musicplayer.R
 import uz.gita.musicplayer.data.model.CommandEnum
 import uz.gita.musicplayer.data.model.MusicData
-import uz.gita.musicplayer.data.model.ThemeUtil
 import uz.gita.musicplayer.presentation.ui.contract.MainContract
+import uz.gita.musicplayer.presentation.ui.theme.Gray
 import uz.gita.musicplayer.presentation.ui.theme.MusicPlayerTheme
+import uz.gita.musicplayer.presentation.ui.theme.TopBar
 import uz.gita.musicplayer.presentation.ui.viewmodel.MainViewModel
 import uz.gita.musicplayer.service.MusicService
 import uz.gita.musicplayer.utils.MyEventBus
 import uz.gita.musicplayer.utils.base.checkPermissions
-import uz.gita.musicplayer.utils.base.getMusicByPos
 import uz.gita.musicplayer.utils.component.MarqueeTextComponent
 import uz.gita.musicplayer.utils.myLog
 
@@ -85,7 +89,8 @@ class MainScreen : AndroidScreen() {
                     }
                 }
 
-                 is MainContract.SideEffect.StartMusicService -> {
+                is MainContract.SideEffect.StartMusicService -> {
+//                    myLog("MainContract.SideEffect.StartMusicService")
                     val intent = Intent(context, MusicService::class.java)
                     intent.putExtra("COMMAND", sideEffect.command)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -96,10 +101,11 @@ class MainScreen : AndroidScreen() {
                         context.startService(intent)
                     }
                 }
+
             }
         }
 
-        MusicPlayerTheme(darkTheme = ThemeUtil.value.value) {
+        MusicPlayerTheme {
             MainScreenContent(uiState = viewModel.collectAsState(), onEventDispatcher = viewModel::onEventDispatcher)
         }
 
@@ -119,13 +125,15 @@ private fun MainScreenContent(
     uiState: State<MainContract.UiState>,
     onEventDispatcher: (MainContract.Intent) -> Unit
 ) {
+
     val context = LocalContext.current
 
     onEventDispatcher.invoke(MainContract.Intent.LoadAllData(context))
 //    myLog("MainScreenContent $${(uiState.value as MainContract.UiState.PreparedData).music}")
     val isPlaying = MyEventBus.musicIsPlaying.collectAsState()
-
-    var selectedMusic = MyEventBus.selectedMusic.collectAsState()
+    var change by remember {
+        mutableStateOf(true)
+    }
 
     Surface(color = MaterialTheme.colorScheme.background) {
         when (uiState.value) {
@@ -140,42 +148,176 @@ private fun MainScreenContent(
                             }
                         }
                     }*/
+                    Column(modifier = Modifier
+                        .fillMaxSize()
+                        .background(TopBar)
 
-                    LazyColumn(modifier = Modifier.matchParentSize(), contentPadding = PaddingValues(bottom = 70.dp)) {
-                        for (pos in 0 until data.musics.size) {
-                            item {
-                                val item = data.musics[pos]
-                                var isSelected = false
-                                if (MyEventBus.selectedPos !=- 1) {
-                                    isSelected = item == selectedMusic.value
-                                }
-                                ItemMusic(music = item, onClickItem = {
-                                    myLog("item clicked pos : $pos")
-                                    onEventDispatcher.invoke(MainContract.Intent.ItemClickedByPos(pos))
-                                },isSelected)
-                            }
+                    ) {
+                        Row(modifier = Modifier
+                            .height(60.dp)
+                            .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Music Player",
+                                fontSize = 24.sp,
+                                color = Gray,
+                                modifier = Modifier
+                                    .padding(start = 16.dp)
+                            )
                         }
+
+                        TabLayout(allMusics = data.musics, favourites = data.favouriteMusics, onEventDispatcher = onEventDispatcher,
+                        onChange = {
+                            change = !change
+                        })
                     }
-                    BottomComponent(modifier = Modifier.align(Alignment.BottomCenter),isPlaying.value,onEventDispatcher)
+
+                    BottomComponent(modifier = Modifier.align(Alignment.BottomCenter), isPlaying.value, onEventDispatcher,change)
                 }
             }
         }
     }
-
 }
 
+private val tabs = listOf(
+    "All Tracks",
+    "Favourites"
+)
+
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BottomComponent(modifier:Modifier, isPlaying:Boolean, onUserAction:(MainContract.Intent)->Unit) {
-    var selectedMusicState = MyEventBus.selectedMusic.collectAsState()
-    val music = selectedMusicState.value
+private fun TabLayout(
+    allMusics: List<MusicData>,
+    favourites: List<MusicData>,
+    onEventDispatcher: (MainContract.Intent) -> Unit,
+    onChange:()->Unit
+) {
+    var selectedTabIndex by remember {
+        mutableStateOf(0)
+    }
+    var change by remember {
+        mutableStateOf(true)
+    }
+
+    change
+
+    var selectedMusic = if (MyEventBus.selectedPos !=-1) MyEventBus.selectedMusicFlow.collectAsState()
+    else  MyEventBus.selectedFavMusicFlow.collectAsState()
+
+            TabRow(
+                selectedTabIndex = selectedTabIndex
+            ) {
+                tabs.forEachIndexed { index, item ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = {
+                            selectedTabIndex = index
+                        },
+                        text = {
+                            Text(
+                                text = item,
+                                fontSize = 20.sp
+                            )
+                        },
+                        modifier = Modifier
+                            .background(TopBar)
+                        )
+                }
+            }
+
+        when (selectedTabIndex) {
+            0 -> {
+                // Content for Tab 1
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        bottom = 70.dp
+                    )
+                ) {
+                    for (pos in allMusics.indices) {
+                        item {
+                            val item = allMusics[pos]
+                            var isSelected = false
+                            if (MyEventBus.selectedPos != -1) {
+                                isSelected = item == selectedMusic.value
+                            }
+                            ItemMusic(music = item, onClickItem = {
+//                                myLog("item clicked pos : $pos")
+                                onEventDispatcher.invoke(MainContract.Intent.AllTracksItemClickedByPos(pos))
+                                change = !change
+                                onChange.invoke()
+                            }, isSelected)
+                        }
+                    }
+                }
+            }
+
+            1 -> {
+                // Content for Tab 2
+               if (favourites.isEmpty()){
+                   Column(modifier = Modifier
+                       .fillMaxSize(),
+                   verticalArrangement = Arrangement.Center,
+                   horizontalAlignment = Alignment.CenterHorizontally) {
+                       Text(
+                           text = "No Favourite Musics",
+                           fontSize = 24.sp,
+                           color = Gray
+                       )
+                   }
+               }
+                else {
+                   LazyColumn(
+                       contentPadding = PaddingValues(
+                           bottom = 70.dp
+                       ),
+                       modifier = Modifier
+                           .fillMaxSize()
+                           .background(Color.White)
+                   ) {
+                       for (pos in favourites.indices) {
+                           item {
+                               val item = favourites[pos]
+                               var isSelected = false
+                               if (MyEventBus.selectedFavPos != -1) {
+                                   isSelected = item == selectedMusic.value
+                               }
+                               ItemMusic(music = item, onClickItem = {
+//                                   myLog("onClickItem Fav in MainScreen")
+                                   onEventDispatcher.invoke(MainContract.Intent.FavouritesItemClickByPos(pos))
+                                   change =!change
+                                   onChange.invoke()
+                               }, isSelected)
+                           }
+                       }
+                   }
+               }
+            }
+        }
+    }
+
+@Composable
+private fun BottomComponent(modifier: Modifier, isPlaying: Boolean, onUserAction: (MainContract.Intent) -> Unit,change:Boolean) {
+    /*var change = MyEventBus.changeFlow.collectAsState()
+    change*/
+    change
+    var selectedFavMusic = MyEventBus.selectedFavMusicFlow.collectAsState()
+    var selectedMusic = MyEventBus.selectedMusicFlow.collectAsState()
+//    var selectedMusicState = if (MyEventBus.selectedPos !=-1) MyEventBus.selectedMusicFlow.collectAsState()
+//    else  MyEventBus.selectedFavMusicFlow.collectAsState()
+    val music = if (MyEventBus.selectedPos != - 1) selectedMusic.value
+    else selectedFavMusic.value
+
+    myLog("BottomComponent")
 
     val mName = music?.name ?: "No composition"
     val mArtist = music?.artist ?: ""
     val albumId = music?.albumId
     val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
-    val image = if (music?.albumId == 6539316500227728566 || music?.albumId == 2138260763037359727 || music == null){
+    val image = if (music?.albumId == 6539316500227728566 || music?.albumId == 2138260763037359727 || music == null) {
         painterResource(id = R.drawable.ic_music)
-    }else {
+    } else {
         rememberAsyncImagePainter(uri)
     }
 
@@ -190,7 +332,7 @@ fun BottomComponent(modifier:Modifier, isPlaying:Boolean, onUserAction:(MainCont
     ) {
         Row(
             modifier = Modifier
-                .heightIn(70.dp)
+                .heightIn(50.dp)
                 .fillMaxWidth()
                 .background(Color(0xFF3AC7FE)),
             verticalAlignment = Alignment.CenterVertically
@@ -257,7 +399,10 @@ fun BottomComponent(modifier:Modifier, isPlaying:Boolean, onUserAction:(MainCont
 
             Image(
                 modifier = Modifier
-                    .padding(start = 8.dp)
+                    .padding(
+                        start = 8.dp,
+                        end = 16.dp
+                    )
                     .clickable {
                         onUserAction.invoke(MainContract.Intent.DoCommand(CommandEnum.NEXT))
                     },
@@ -265,12 +410,12 @@ fun BottomComponent(modifier:Modifier, isPlaying:Boolean, onUserAction:(MainCont
                 contentDescription = null
             )
 
-            Image(
+         /*   Image(
                 modifier = Modifier
                     .padding(start = 8.dp, end = 16.dp),
                 painter = painterResource(id = R.drawable.ic_musics),
                 contentDescription = null
-            )
+            )*/
         }
     }
 }

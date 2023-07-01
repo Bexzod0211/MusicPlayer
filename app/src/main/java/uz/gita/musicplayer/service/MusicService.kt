@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.widget.RemoteViews
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
@@ -28,16 +27,16 @@ import uz.gita.musicplayer.MainActivity
 import uz.gita.musicplayer.R
 import uz.gita.musicplayer.data.model.CommandEnum
 import uz.gita.musicplayer.data.model.MusicData
-import uz.gita.musicplayer.presentation.ui.screens.play.PlayScreen
+import uz.gita.musicplayer.data.source.local.AppDatabase
 import uz.gita.musicplayer.utils.MyEventBus
 import uz.gita.musicplayer.utils.base.getMusicByPos
 import uz.gita.musicplayer.utils.myLog
 import kotlin.random.Random
-import kotlin.random.nextInt
 
 class MusicService : Service() {
     private val CHANNEL_ID = "Bekhzod's Music player"
 
+    private val dao = AppDatabase.getInstance().getMusicDao()
     override fun onBind(p0: Intent?): IBinder? {
         return null
     }
@@ -49,6 +48,9 @@ class MusicService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+//        myLog("onCreate MusicService")
+        // Initialize Dagger and inject dependencies
+
     }
 
     private fun createChannel() {
@@ -62,15 +64,15 @@ class MusicService : Service() {
     }
 
 
-    private fun createNotification(music: MusicData, command: CommandEnum) {
+    private fun createNotification(music: MusicData) {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_music)
-            .setCustomContentView(createRemoteView(music, command))
+            .setSmallIcon(R.drawable.icon_music)
+            .setCustomContentView(createRemoteView(music))
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -81,15 +83,17 @@ class MusicService : Service() {
 
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (MyEventBus.cursor == null || MyEventBus.selectedPos == -1) return START_NOT_STICKY
+        if (MyEventBus.cursor == null) return START_NOT_STICKY
         val command = intent?.extras?.getSerializable("COMMAND") as CommandEnum
-        createNotification(MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos), command)
-//        myLog("onStartCommand in MusicService: musicData-> ${MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)}")
+        val music = if (MyEventBus.selectedPos !=- 1)  MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)
+        else dao.getAllFavouritesMusics()[MyEventBus.selectedFavPos]
+        createNotification(music)
+
         doneCommand(command)
         return START_NOT_STICKY
     }
 
-    private fun createRemoteView(music: MusicData, command: CommandEnum): RemoteViews {
+    private fun createRemoteView(music: MusicData): RemoteViews {
         val view = RemoteViews(packageName, R.layout.remote_view)
 
         val albumId = music.albumId
@@ -145,19 +149,36 @@ class MusicService : Service() {
                 if (currentTime > 10_000) {
                     MyEventBus.currentTime = 0
                     musicPlayer.seekTo(0)
-                    startNewJob()
+                    MyEventBus.musicIsPlaying.onEach {
+                        if (it)
+                            startNewJob()
+                    }.launchIn(scope)
                 } else {
-                    var nextPos = 0
-                    if (MyEventBus.isShuffle) {
-                        nextPos = Random.nextInt(0, MyEventBus.cursor!!.count)
-                    } else {
-                        nextPos = if (MyEventBus.selectedPos == 0) {
-                            MyEventBus.cursor!!.count - 1
+                    if (MyEventBus.selectedPos != -1) {
+                        var nextPos = 0
+                        if (MyEventBus.isShuffle) {
+                            nextPos = Random.nextInt(0, MyEventBus.cursor!!.count)
                         } else {
-                            --MyEventBus.selectedPos
+                            nextPos = if (MyEventBus.selectedPos == 0) {
+                                MyEventBus.cursor!!.count - 1
+                            } else {
+                                --MyEventBus.selectedPos
+                            }
                         }
+                        MyEventBus.selectedPos = nextPos
+                    } else if (MyEventBus.selectedFavPos != -1){
+                        var nextPos = 0
+                        if (MyEventBus.isShuffle) {
+                            nextPos = Random.nextInt(0, dao.getAllFavouritesMusics().size)
+                        } else {
+                            nextPos = if (MyEventBus.selectedFavPos == 0) {
+                                dao.getAllFavouritesMusics().size - 1
+                            } else {
+                                --MyEventBus.selectedFavPos
+                            }
+                        }
+                        MyEventBus.selectedFavPos = nextPos
                     }
-                    MyEventBus.selectedPos = nextPos
                     doneCommand(CommandEnum.START)
                 }
             }
@@ -172,31 +193,51 @@ class MusicService : Service() {
             }
 
             CommandEnum.START -> {
-
-                val data = MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)
                 _musicPlayer?.stop()
-                _musicPlayer = MediaPlayer.create(this, Uri.parse(data.data))
                 MyEventBus.currentTime = 0
+                var data:MusicData? = null
+                if (MyEventBus.selectedPos !=- 1) {
+                     data = MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos)
 
-                musicPlayer.setOnCompletionListener {
-                    if (MyEventBus.isRepeatOne){
-                        doneCommand(CommandEnum.START)
-                    }else {
-                        doneCommand(CommandEnum.NEXT)
+                    _musicPlayer = MediaPlayer.create(this, Uri.parse(data.data))
+
+                    scope.launch {
+//                        myLog("MyEventBus.selectedMusicFlow.emit(data) in MusicService")
+                        MyEventBus.selectedMusicFlow.emit(data)
                     }
-                }
 
-                MyEventBus.totalTime = MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos).duration
-                startNewJob()
+
 
 //                MyEventBus.currentTimeFlow.onEach {
 //                    musicPlayer.seekTo(it)
 //                }.launchIn(scope)
 
+
+
+                }else if (MyEventBus.selectedFavPos !=- 1){
+                    data = dao.getAllFavouritesMusics()[MyEventBus.selectedFavPos]
+                    _musicPlayer = MediaPlayer.create(this, Uri.parse(data.data))
+                    scope.launch {
+                        myLog("MyEventBus.selectedFavMusicFlow.emit(data) in MusicService")
+                        MyEventBus.selectedFavMusicFlow.emit(data)
+                    }
+//                MyEventBus.currentTimeFlow.onEach {
+//                    musicPlayer.seekTo(it)
+//                }.launchIn(scope)
+                }
+                MyEventBus.totalTime = data!!.duration
+                startNewJob()
+                musicPlayer.setOnCompletionListener {
+                    if (MyEventBus.isRepeatOne) {
+                        doneCommand(CommandEnum.START)
+                    } else {
+                        doneCommand(CommandEnum.NEXT)
+                    }
+                }
                 musicPlayer.start()
                 scope.launch {
-                    MyEventBus.selectedMusic.emit(MyEventBus.cursor!!.getMusicByPos(MyEventBus.selectedPos))
                     MyEventBus.musicIsPlaying.emit(musicPlayer.isPlaying)
+                    MyEventBus.changeFlow.emit(true)
                 }
             }
 
@@ -212,17 +253,31 @@ class MusicService : Service() {
             }
 
             CommandEnum.NEXT -> {
-                var nextPos = 0
-                if (MyEventBus.isShuffle) {
-                    nextPos = Random.nextInt(0, MyEventBus.cursor!!.count)
-                } else {
-                    nextPos = if (MyEventBus.selectedPos == MyEventBus.cursor!!.count - 1) {
-                        0
+                if (MyEventBus.selectedPos != -1) {
+                    var nextPos = 0
+                    if (MyEventBus.isShuffle) {
+                        nextPos = Random.nextInt(0, MyEventBus.cursor!!.count)
                     } else {
-                        ++MyEventBus.selectedPos
+                        nextPos = if (MyEventBus.selectedPos == MyEventBus.cursor!!.count - 1) {
+                            0
+                        } else {
+                            ++MyEventBus.selectedPos
+                        }
                     }
+                    MyEventBus.selectedPos = nextPos
+                }else if (MyEventBus.selectedFavPos != -1){
+                    var nextPos = 0
+                    if (MyEventBus.isShuffle) {
+                        nextPos = Random.nextInt(0, dao.getAllFavouritesMusics().size)
+                    } else {
+                        nextPos = if (MyEventBus.selectedFavPos == dao.getAllFavouritesMusics().size - 1) {
+                            0
+                        } else {
+                            ++MyEventBus.selectedFavPos
+                        }
+                    }
+                    MyEventBus.selectedFavPos = nextPos
                 }
-                MyEventBus.selectedPos = nextPos
                 doneCommand(CommandEnum.START)
             }
 

@@ -127,12 +127,20 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
         mutableStateOf(MyEventBus.isRepeatOne)
     }
 
+    
     val imageSize = animateDpAsState(targetValue = if (isPlaying.value) 320.dp else 170.dp, animationSpec = tween(durationMillis = 300))
 
     when (uiState.value) {
         is PlayContract.UiState.CurrentMusicData -> {
 //            myLog("PlayScreen: ${(uiState.value as PlayContract.UiState.CurrentMusicData).music}")
-            val music = (uiState.value as PlayContract.UiState.CurrentMusicData).music
+            val currentMusicData = uiState.value as PlayContract.UiState.CurrentMusicData
+            val music = currentMusicData.music
+
+            var isFavourite by remember {
+                mutableStateOf(currentMusicData.isFavourite)
+            }
+            isFavourite = currentMusicData.isFavourite
+
             val albumId = music.albumId
             val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
             val image = if (music.albumId == 6539316500227728566 || music.albumId == 2138260763037359727) {
@@ -152,7 +160,8 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                         Row(
                             modifier = Modifier
                                 .padding(top = 16.dp)
-                                .fillMaxWidth()
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Image(
                                 painter = painterResource(id = R.drawable.ic_more_down),
@@ -162,9 +171,22 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                     .clickable {
                                         onEventDispatcher.invoke(PlayContract.Intent.BackToMain)
                                     }
-                                    .padding(4.dp)
+                                    .padding(4.dp),
+                                colorFilter = ColorFilter.tint(Color.White)
                             )
-                            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
+                            Image(
+                                painter = if (isFavourite) painterResource(id = R.drawable.ic_favourite)
+                                else painterResource(id = R.drawable.ic_favourite_border),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .padding(end = 16.dp)
+                                    .clickable {
+                                        if (isFavourite) onEventDispatcher.invoke(PlayContract.Intent.RemoveFromFavourites)
+                                        else onEventDispatcher.invoke(PlayContract.Intent.AddToFavourites)
+                                        isFavourite = !isFavourite
+                                    }
+                            )
+                            /*Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
                                 Image(painter = painterResource(id = R.drawable.ic_volume),
                                     contentDescription = null,
                                 modifier = Modifier
@@ -181,7 +203,7 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                                         }
                                         .padding(4.dp)
                                 )
-                            }
+                            }*/
                         }
                         Box(
                             modifier = Modifier
@@ -220,23 +242,30 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
                             verticalArrangement = Arrangement.Bottom
                         ) {
                             Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
                                     .padding(start = 24.dp, end = 24.dp)
                                     .fillMaxWidth()
                             ) {
-                                Image(
+                                /*Image(
                                     painter = painterResource(id = R.drawable.ic_musics),
                                     contentDescription = null
-                                )
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_favourite_border),
-                                    contentDescription = null
-                                )
-                                Image(
+                                )*/
+                                /*Image(
+                                    painter = if (isFavourite) painterResource(id = R.drawable.ic_favourite)
+                                    else painterResource(id = R.drawable.ic_favourite_border),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .clickable {
+                                            if (isFavourite) onEventDispatcher.invoke(PlayContract.Intent.RemoveFromFavourites)
+                                            else onEventDispatcher.invoke(PlayContract.Intent.AddToFavourites)
+                                            isFavourite = !isFavourite
+                                        }
+                                )*/
+                                /*Image(
                                     painter = painterResource(id = R.drawable.ic_add),
                                     contentDescription = null
-                                )
+                                )*/
                             }
                             Slider(
                                 value = currentTime.value.toFloat(),
@@ -342,6 +371,6 @@ private fun PlayScreenContent(uiState: State<PlayContract.UiState>, onEventDispa
 @Composable
 private fun PlayScreenPreview() {
     PlayScreenContent(remember {
-        mutableStateOf(PlayContract.UiState.CurrentMusicData(MusicData(1, "Another love", "Tom Odell", 1L, "", 12000)))
+        mutableStateOf(PlayContract.UiState.CurrentMusicData(MusicData(1, "Another love", "Tom Odell", 1L, "", 12000),true))
     }, {})
 }
