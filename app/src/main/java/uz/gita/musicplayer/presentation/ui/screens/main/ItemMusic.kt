@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import coil.compose.rememberImagePainter
 import uz.gita.musicplayer.R
 import uz.gita.musicplayer.data.model.MusicData
 import uz.gita.musicplayer.data.model.ThemeUtil
@@ -56,6 +57,7 @@ fun ItemMusic(music:MusicData,onClickItem:()->Unit,isSelected:Boolean = false) {
         mNameColor = Selected
         mArtistColor = Selected
     }
+
 
     MusicPlayerTheme(darkTheme = ThemeUtil.value.value) {
         Surface(color = MaterialTheme.colorScheme.background) {

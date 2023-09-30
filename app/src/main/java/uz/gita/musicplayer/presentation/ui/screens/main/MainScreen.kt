@@ -49,6 +49,10 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.androidx.AndroidScreen
 import cafe.adriel.voyager.hilt.getViewModel
 import coil.compose.rememberAsyncImagePainter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.orbitmvi.orbit.compose.collectAsState
 import org.orbitmvi.orbit.compose.collectSideEffect
 import uz.gita.musicplayer.MainActivity
@@ -428,3 +432,19 @@ private fun MainScreenPreview() {
     }, {})
 }
 
+suspend fun main(){
+    val scope1 = CoroutineScope(Dispatchers.Default)
+    val scope2 = CoroutineScope(Dispatchers.Default)
+
+    scope1.launch {
+        delay(2000)
+        println("scope1")
+    }
+
+    scope2.launch {
+        delay(1000)
+        println("scope2")
+    }
+
+    delay(3000)
+}
